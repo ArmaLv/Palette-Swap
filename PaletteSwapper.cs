@@ -10,6 +10,25 @@ public class PaletteSwapper : MonoBehaviour
     public bool useSpriteSwap = false;
     public Texture2D nightSprite;
 
+    [Space]
+    [Header("Transition Settings")]
+    public TransitionMode transitionMode = TransitionMode.Blend;
+    [Range(0f, 0.5f)] public float edgeSoftness = 0.05f;
+    [Range(1, 64)]    public int rowSteps = 8;
+
+    public enum TransitionMode
+    {
+        Blend            = 0,
+        LeftToRight      = 1,
+        RightToLeft      = 2,
+        TopToBottom      = 3,
+        BottomToTop      = 4,
+        RowByRow         = 5,
+        CenterHorizontal = 6,
+        CenterVertical   = 7,
+        CenterOutward    = 8,
+    }
+
     private Material runtimeMaterial;
 
     private void Start()
@@ -31,6 +50,10 @@ public class PaletteSwapper : MonoBehaviour
         {
             runtimeMaterial.DisableKeyword("_SPRITE_SWAP");
         }
+
+        runtimeMaterial.SetInt("_TransitionMode", (int)transitionMode);
+        runtimeMaterial.SetFloat("_EdgeSoftness", edgeSoftness);
+        runtimeMaterial.SetFloat("_RowSteps", rowSteps);
 
         TimeManager.Instance.OnTimeSwitched += UpdatePalette;
         TimeManager.Instance.OnTransitionProgress += UpdateBlend;

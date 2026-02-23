@@ -8,6 +8,8 @@ This project implements a palette swapping system for Unity 2D games, allowing d
 
 <img src="ScreenShots/Shader.png" alt="Shader Setup" width="400">
 
+<img src="ScreenShots/Manager.png" alt="Manager" width="400">
+
 <img src="ScreenShots/ShowOff.gif" alt="Show Off" width="400">
 
 ## Requirements
@@ -19,13 +21,13 @@ This project implements a palette swapping system for Unity 2D games, allowing d
 
 This palette swapping system is designed for pixel-style 2D games (not yet compatible with non-pixel art). It works by replacing colors in a sprite's texture with corresponding colors from a palette texture. Each palette is a 1-pixel high texture where the width represents the number of colors (e.g., 8 colors = 8 pixels wide).
 
-Optionally, sprites can also swap to an entirely different night variant texture during the transition, allowing visual changes beyond color (e.g. a character gaining a sword at night) while the palette blend runs simultaneously.
+Optionally, sprites can swap to an entirely different night variant texture during the transition, allowing visual changes beyond color (e.g. a character gaining a sword at night). Both the palette change and sprite swap are driven by the same transition wipe, so detail pixels on the night sprite appear exactly as the wipe reaches their position.
 
 ### Key Components
 
-1. **PaletteSwap.shader**: A custom shader that performs the color replacement in real-time, with optional night sprite blending.
-2. **PaletteSwapManager.cs**: Manages the day/night state and handles transitions with a configurable duration.
-3. **PaletteSwapper.cs**: Applies the palette swap to individual sprites, with an optional sprite swap mode.
+1. **PaletteSwap.shader**: A custom shader that performs color replacement and optional sprite swapping in real-time, with multiple pixel-by-pixel wipe transition modes.
+2. **TimeManager.cs**: Manages the day/night state and handles transitions with independently configurable to-night and to-day durations.
+3. **TimePaletteSwap.cs**: Applies the palette swap to individual sprites, with optional sprite swap and configurable transition mode per sprite.
 
 ### Palette Format
 
@@ -40,8 +42,8 @@ Optionally, sprites can also swap to an entirely different night variant texture
 
 Add the following files to your Unity project:
 - `PaletteSwap.shader`
-- `PaletteSwapManager.cs`
-- `PaletteSwapper.cs`
+- `TimeManager.cs`
+- `TimePaletteSwap.cs`
 
 ### 2. Create Palette Textures
 
@@ -70,42 +72,64 @@ Add the following files to your Unity project:
    - **Palette Size**: Set to the width of your palettes (number of colors)
    - **Match Threshold**: Adjust sensitivity for color matching (default 0.01)
    - **Is Night**: Controlled by the script (0 = day, 1 = night)
-   - **Sprite Swap**: Toggle to enable night sprite blending (can also be set via the PaletteSwapper script)
+   - **Sprite Swap**: Toggle to enable night sprite swapping (can also be controlled via the TimePaletteSwap script)
 
-### 4. Set Up the Palette Swap Manager
+### 4. Set Up the Time Manager
 
-1. Attach the `PaletteSwapManager` script to any GameObject in your scene (e.g., the player object)
+1. Attach the `TimeManager` script to any GameObject in your scene (e.g., the player object)
 2. Configure settings:
    - **Starting State**: Choose Day or Night
    - **Toggle Key**: Key to switch between day/night (default Tab)
-   - **Transition Duration**: Duration in seconds for the palette blend transition (set to 0 for an instant swap)
+   - **Transition Duration**: Seconds for the day → night transition. `0` = instant
+   - **Transition Duration Back**: Seconds for the night → day transition. `0` = instant. `-1` = use Transition Duration
 
 ### 5. Apply to Sprites
 
 1. Select a SpriteRenderer in your scene
-2. Attach the `PaletteSwapper` script to the same GameObject as the SpriteRenderer
+2. Attach the `TimePaletteSwap` script to the same GameObject as the SpriteRenderer
 3. Assign the Material you created to the SpriteRenderer's Material field
-4. In the `PaletteSwapper` script:
+4. In the `TimePaletteSwap` script:
    - **Day Palette**: Assign the day palette texture (must match the one in the material)
    - **Night Palette**: Assign the night palette texture (must match the one in the material)
    - **Use Sprite Swap**: Check this if the sprite has a night variant texture
    - **Night Sprite**: Assign the night variant texture (only required when Use Sprite Swap is checked)
+   - **Transition Mode**: Choose the wipe direction for this sprite (see Transition Modes below)
+   - **Row Steps**: Number of discrete rows (only relevant for Row By Row mode)
 
-   **Note**: The palettes assigned to the `PaletteSwapper` script must exactly match those in the material (No clue what happens when they are not matching).
+   **Note**: The palettes assigned to the `TimePaletteSwap` script must exactly match those in the material (No clue what happens when they are not matching).
+
+## Transition Modes
+
+Each sprite can use a different transition mode independently. All modes are pixel-by-pixel hard cuts — a pixel switches the instant the wipe reaches it. **Blend** is the only mode that fades all pixels simultaneously.
+
+| Mode | Description |
+|---|---|
+| Blend | All pixels fade simultaneously (smooth, not pixel-by-pixel) |
+| Left To Right | Wipe sweeps from left edge to right |
+| Right To Left | Wipe sweeps from right edge to left |
+| Top To Bottom | Wipe sweeps from top edge to bottom |
+| Bottom To Top | Wipe sweeps from bottom edge to top |
+| Row By Row | Switches in discrete horizontal bands, count set by Row Steps |
+| Center Horizontal | Wipe expands outward from the vertical center line |
+| Center Vertical | Wipe expands outward from the horizontal center line |
+| Center Outward | Wipe expands outward from the center point in all directions |
 
 ## Usage
 
 - Press the configured toggle key (default Tab) to switch between day and night
-- If **Transition Duration** is set to `0`, the palette swaps instantly
-- If **Transition Duration** is greater than `0`, each color in the sprite smoothly interpolates between the day and night palette over the specified duration — this is driven per-frame via the shader's `_IsNight` blend weight (`0` = full day, `1` = full night)
-- Sprites without a night variant work as normal palette-only swaps — simply leave **Use Sprite Swap** unchecked
-- Sprites with **Use Sprite Swap** enabled will cross-fade between the day and night sprite textures in sync with the palette transition
-- Multiple sprites can share the same palette setup by using matching materials and PaletteSwapper configurations
+- If **Transition Duration** is `0`, the swap is instant with no wipe
+- If **Transition Duration** is greater than `0` (up to 10 seconds), the transition wipe plays over that duration
+- Day → night and night → day can have different durations via **Transition Duration Back**. Set to `-1` to mirror the forward duration
+- Sprites without a night variant work as palette-only swaps — leave **Use Sprite Swap** unchecked
+- Sprites with **Use Sprite Swap** enabled swap their texture pixel-by-pixel in sync with the palette wipe, so detail elements on the night sprite appear exactly as the wipe reaches them
+- Multiple sprites can use different transition modes simultaneously — each `TimePaletteSwap` component is configured independently
 
 ## Technical Details
 
-The shader performs color matching by comparing each pixel of the sprite against the day palette colors. When a match is found (within the threshold), it replaces the color with the corresponding color from the night palette, interpolated based on the `_IsNight` value (a float from 0 to 1). This allows smooth per-color blending between palettes during transitions.
+The shader performs color matching by comparing each pixel of the sprite against the day palette colors. When a match is found (within the threshold), it replaces the color with the corresponding color from the night palette based on a per-pixel `weight` value that is either `0` (day) or `1` (night) depending on whether the transition wipe has reached that pixel's UV position.
 
-When sprite swap is enabled via the `_SPRITE_SWAP` shader keyword, the fragment shader first cross-fades between the day and night sprite textures using `_IsNight`, then runs the palette lookup on the blended result. When disabled, the keyword is compiled out entirely with no performance cost.
+All wipe thresholds are normalized to `0–1` so every pixel is guaranteed to switch before `_IsNight` reaches `1.0`. The Center Outward mode normalizes by the maximum corner distance (`0.7072`) to ensure corners are always reached. Blend mode (0) is the only exception — it passes `_IsNight` directly so all pixels interpolate together.
 
-The `PaletteSwapManager` broadcasts two events: `OnTimeSwitched` (fires once when the transition completes) and `OnTransitionProgress` (fires every frame during a transition with the current blend value). The `PaletteSwapper` subscribes to both — `OnTransitionProgress` drives the smooth blend each frame, while `OnTimeSwitched` snaps the value to a clean `0` or `1` at the end.
+When sprite swap is enabled via the `_SPRITE_SWAP` shader keyword, the fragment shader selects between day and night sprite textures using the same per-pixel `weight` as the palette wipe, keeping both in perfect sync. When disabled, the keyword is compiled out entirely with no performance cost.
+
+The `TimeManager` broadcasts two events: `OnTimeSwitched` (fires once when the transition completes) and `OnTransitionProgress` (fires every frame during a transition with the current blend value). The `TimePaletteSwap` subscribes to both — `OnTransitionProgress` drives the wipe each frame, while `OnTimeSwitched` snaps the value to a clean `0` or `1` at the end.

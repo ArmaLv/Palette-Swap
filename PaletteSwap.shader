@@ -10,6 +10,9 @@ Shader "Custom/PaletteSwap"
         _Threshold ("Match Threshold", Float) = 0.01
         _IsNight ("Is Night", Float) = 0
         [Toggle(_SPRITE_SWAP)] _SpriteSwap ("Sprite Swap", Float) = 0
+        // Transition
+        _TransitionMode ("Transition Mode", Int) = 0
+        _RowSteps ("Row Steps", Float) = 8
     }
     SubShader
     {
@@ -33,6 +36,8 @@ Shader "Custom/PaletteSwap"
             float _PaletteSize;
             float _Threshold;
             float _IsNight;
+            int   _TransitionMode;
+            float _RowSteps;
 
             // !! Change this to match your largest palette !!
             #define MAX_PALETTE_SIZE 32
@@ -48,15 +53,45 @@ Shader "Custom/PaletteSwap"
                 return o;
             }
 
+            // Returns 0 (day) or 1 (night) per pixel — hard cut, no blending
+            float TransitionWeight(float2 uv)
+            {
+                float threshold;
+
+                if (_TransitionMode == 1) // Left to right
+                    threshold = uv.x;
+                else if (_TransitionMode == 2) // Right to left
+                    threshold = 1.0 - uv.x;
+                else if (_TransitionMode == 3) // Top to bottom
+                    threshold = uv.y;
+                else if (_TransitionMode == 4) // Bottom to top
+                    threshold = 1.0 - uv.y;
+                else if (_TransitionMode == 5) // Row by row (stepped)
+                    threshold = floor(uv.y * _RowSteps) / (_RowSteps - 1.0);
+                else if (_TransitionMode == 6) // Center horizontal
+                    threshold = abs(uv.x - 0.5) * 2.0;
+                else if (_TransitionMode == 7) // Center vertical
+                    threshold = abs(uv.y - 0.5) * 2.0;
+                else if (_TransitionMode == 8) // Center outward — normalized to corner dist
+                    threshold = saturate(distance(uv, float2(0.5, 0.5)) / 0.7072);
+                else // Blend (mode 0) — smooth simultaneous fade
+                    return _IsNight;
+
+                // Hard pixel-by-pixel step — this pixel has switched or it hasn't
+                return step(threshold, _IsNight);
+            }
+
             fixed4 frag(v2f i) : SV_Target
             {
+                float weight = TransitionWeight(i.uv);
+
                 fixed4 col;
 
                 #ifdef _SPRITE_SWAP
-                    // Blend day/night sprites
+                    // Sprite swap is also pixel-by-pixel in sync with the wipe
                     col = lerp(tex2D(_MainTex, i.uv),
                                tex2D(_NightTex, i.uv),
-                               _IsNight);
+                               weight);
                 #else
                     col = tex2D(_MainTex, i.uv);
                 #endif
@@ -77,8 +112,8 @@ Shader "Custom/PaletteSwap"
                     if (distance(col.rgb, dayColor.rgb) < _Threshold)
                     {
                         fixed4 nightColor = tex2D(_NightPalette, float2(u, 0.5));
-                        result = lerp(dayColor, nightColor, _IsNight);
-                        result.a = col.a; // Preserve alpha
+                        result = lerp(dayColor, nightColor, weight);
+                        result.a = col.a;
                         matched = true;
                     }
                 }

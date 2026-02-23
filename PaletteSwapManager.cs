@@ -5,20 +5,21 @@ using System;
 public class TimeManager : MonoBehaviour
 {
     public static TimeManager Instance { get; private set; }
-
     public enum TimeState { Day, Night }
-
     public event Action<TimeState> OnTimeSwitched;
 
     [Header("Settings")]
     [SerializeField] private TimeState startingState = TimeState.Day;
     [SerializeField] private Key toggleKey = Key.Tab;
 
-    [Header("Transition (optional)")]
-    [Tooltip("Seconds for a smooth palette lerp. Set to 0 for instant swap.")]
-    [SerializeField] private float transitionDuration = 0f;
+    [Header("Transition")]
+    [Tooltip("Seconds for transition to night. 0 = instant.")]
+    [Range(0f, 10f)] [SerializeField] private float transitionDuration = 0f;
+    [Tooltip("Seconds for transition back to day. 0 = instant. -1 = use Transition Duration.")]
+    [Range(-1f, 10f)] [SerializeField] private float transitionDurationBack = -1f;
 
     public TimeState CurrentState { get; private set; }
+    public event Action<float> OnTransitionProgress;
 
     private bool _transitioning = false;
     private float _transitionTimer = 0f;
@@ -34,15 +35,11 @@ public class TimeManager : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
-
         CurrentState = startingState;
     }
 
     private void Update()
     {
-        if (Keyboard.current[toggleKey].wasPressedThisFrame)
-            Debug.Log($"[TimeManager] TAB pressed, transitioning: {_transitioning}");
-
         if (Keyboard.current[toggleKey].wasPressedThisFrame && !_transitioning)
             BeginSwitch();
 
@@ -50,11 +47,23 @@ public class TimeManager : MonoBehaviour
             TickTransition();
     }
 
+    private float GetDuration()
+    {
+        if (CurrentState == TimeState.Night)
+        {
+            // Transitioning back to day
+            return transitionDurationBack < 0f ? transitionDuration : transitionDurationBack;
+        }
+        return transitionDuration;
+    }
+
     private void BeginSwitch()
     {
         _targetState = CurrentState == TimeState.Day ? TimeState.Night : TimeState.Day;
 
-        if (transitionDuration <= 0f)
+        float duration = GetDuration();
+
+        if (duration <= 0f)
         {
             // Instant
             ApplyState(_targetState);
@@ -69,12 +78,13 @@ public class TimeManager : MonoBehaviour
 
     private void TickTransition()
     {
+        float duration = GetDuration();
         _transitionTimer += Time.deltaTime;
-        float t = Mathf.Clamp01(_transitionTimer / transitionDuration);
+        float t = Mathf.Clamp01(_transitionTimer / duration);
 
         // Broadcast a normalised progress value so listeners can lerp colours
         OnTransitionProgress?.Invoke(
-            CurrentState == TimeState.Day ? t : 1f - t   // 0 = full day, 1 = full night
+            CurrentState == TimeState.Day ? t : 1f - t  // 0 = full day, 1 = full night
         );
 
         if (t >= 1f)
@@ -87,11 +97,10 @@ public class TimeManager : MonoBehaviour
     private void ApplyState(TimeState newState)
     {
         CurrentState = newState;
+        // Snap the blend weight to a clean value after transition completes
         OnTransitionProgress?.Invoke(newState == TimeState.Night ? 1f : 0f);
         OnTimeSwitched?.Invoke(CurrentState);
     }
-
-    public event Action<float> OnTransitionProgress;
 
     public void SetState(TimeState state)
     {
