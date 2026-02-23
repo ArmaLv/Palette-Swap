@@ -87,7 +87,7 @@ public class TimeManager : MonoBehaviour
     private void ApplyState(TimeState newState)
     {
         CurrentState = newState;
-        Debug.Log($"[TimeManager] ApplyState → {newState}, listeners: {OnTimeSwitched?.GetInvocationList().Length ?? 0}");
+        OnTransitionProgress?.Invoke(newState == TimeState.Night ? 1f : 0f);
         OnTimeSwitched?.Invoke(CurrentState);
     }
 

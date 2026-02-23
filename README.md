@@ -74,7 +74,7 @@ Add the following files to your Unity project:
 2. Configure settings:
    - **Starting State**: Choose Day or Night
    - **Toggle Key**: Key to switch between day/night (default Tab)
-   - **Transition Duration** (for now it acts as delay, but it will have mix transition)
+   - **Transition Duration**: Duration in seconds for the palette blend transition (set to 0 for an instant swap)
 
 ### 5. Apply to Sprites
 
@@ -89,13 +89,13 @@ Add the following files to your Unity project:
 
 ## Usage
 
-- Press the configured toggle key (default Tab) to initiate palette swapping
-- The transition duration acts as a delay before the palette change takes effect
-- Future updates will implement smooth mixing transitions instead of delays
+- Press the configured toggle key (default Tab) to switch between day and night
+- If **Transition Duration** is set to `0`, the palette swaps instantly
+- If **Transition Duration** is greater than `0`, each color in the sprite smoothly interpolates between the day and night palette over the specified duration — this is driven per-frame via the shader's `_IsNight` blend weight (`0` = full day, `1` = full night)
 - Multiple sprites can share the same palette setup by using matching materials and PaletteSwapper configurations
 
 ## Technical Details
 
-The shader performs color matching by comparing each pixel of the sprite against the day palette colors. When a match is found (within the threshold), it replaces the color with the corresponding color from the night palette, interpolated based on the `_IsNight` value.
+The shader performs color matching by comparing each pixel of the sprite against the day palette colors. When a match is found (within the threshold), it replaces the color with the corresponding color from the night palette, interpolated based on the `_IsNight` value (a float from 0 to 1). This allows smooth per-color blending between palettes during transitions.
 
-The `PaletteSwapManager` coordinates state changes and can be attached to any GameObject (such as the player). The `PaletteSwapper` ensures each sprite uses consistent palettes between its script and material.
+The `PaletteSwapManager` broadcasts two events: `OnTimeSwitched` (fires once when the transition completes) and `OnTransitionProgress` (fires every frame during a transition with the current blend value). The `PaletteSwapper` subscribes to both — `OnTransitionProgress` drives the smooth blend each frame, while `OnTimeSwitched` snaps the value to a clean `0` or `1` at the end.
