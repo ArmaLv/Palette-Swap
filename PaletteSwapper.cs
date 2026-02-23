@@ -6,6 +6,10 @@ public class PaletteSwapper : MonoBehaviour
     public Texture2D dayPalette;
     public Texture2D nightPalette;
 
+    [Space]
+    public bool useSpriteSwap = false;
+    public Texture2D nightSprite;
+
     private Material runtimeMaterial;
 
     private void Start()
@@ -18,9 +22,17 @@ public class PaletteSwapper : MonoBehaviour
         runtimeMaterial.SetTexture("_NightPalette", nightPalette);
         runtimeMaterial.SetFloat("_PaletteSize", dayPalette.width);
 
-        // Instant swap on full state change
+        if (useSpriteSwap && nightSprite != null)
+        {
+            runtimeMaterial.SetTexture("_NightTex", nightSprite);
+            runtimeMaterial.EnableKeyword("_SPRITE_SWAP");
+        }
+        else
+        {
+            runtimeMaterial.DisableKeyword("_SPRITE_SWAP");
+        }
+
         TimeManager.Instance.OnTimeSwitched += UpdatePalette;
-        // Smooth blend during transition
         TimeManager.Instance.OnTransitionProgress += UpdateBlend;
 
         UpdatePalette(TimeManager.Instance.CurrentState);
