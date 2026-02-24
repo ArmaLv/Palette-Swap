@@ -19,14 +19,14 @@ public class PaletteSwapper : MonoBehaviour
     public enum TransitionMode
     {
         Blend            = 0,
-        LeftToRight      = 1,
-        RightToLeft      = 2,
-        TopToBottom      = 3,
-        BottomToTop      = 4,
+        RightToLeft      = 1,
+        LeftToRight      = 2,
+        BottomToTop      = 3,
+        TopToBottom      = 4,
         RowByRow         = 5,
-        CenterHorizontal = 6,
-        CenterVertical   = 7,
-        CenterOutward    = 8,
+        CenterVertical    = 6,
+        CenterHorizontal  = 7,
+        CenterOutward     = 8,
     }
 
     private Material runtimeMaterial;
